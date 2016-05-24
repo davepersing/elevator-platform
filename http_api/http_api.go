@@ -20,6 +20,12 @@ type (
 		Port     string // Port this http server listens on.
 		*etcd.Etcd
 	}
+
+	maintenanceRequest struct {
+		ElevatorId  string `json:"elevatorId"`
+		GroupId     string `json:"groupId"`
+		Maintenance string `json:"maintenance"`
+	}
 )
 
 // Initializes the HTTP API module.
@@ -38,8 +44,44 @@ func (ha *HttpApi) Init() {
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/elevator_call", ha.handleElevatorCall)
+		mux.HandleFunc("/maintenance", ha.handleElevatorMaintenance)
 		http.ListenAndServe(ha.Hostname+ha.Port, mux)
 	}(ha)
+}
+
+// Handles request to put elevator in maintenance mode.
+//
+func (ha *HttpApi) handleElevatorMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+	var mr maintenanceRequest
+
+	if err := decoder.Decode(&mr); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Printf("Error decoding maintenance struct: %v\n", err)
+		fmt.Fprintf(w, "Error decoding maintenance struct: %v\n", err)
+		return
+	}
+
+	if err := ha.Etcd.SetMaintenanceMode(mr.ElevatorId, mr.GroupId, mr.Maintenance); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error setting maintenance mode for elevator: %v\n", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	success := map[string]string{
+		"elevatorId":  mr.ElevatorId,
+		"groupId":     mr.GroupId,
+		"maintenance": mr.Maintenance,
+	}
+
+	if err := json.NewEncoder(w).Encode(success); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error sending setMaintenanceResponse: %v\n", err)
+	}
 }
 
 // Handles the passenger's request for an elevator.
@@ -50,7 +92,7 @@ func (ha *HttpApi) handleElevatorCall(w http.ResponseWriter, r *http.Request) {
 
 	if err := decoder.Decode(&p); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error decoding passenger struct: %v", err)
+		fmt.Fprintf(w, "Error decoding passenger struct: %v\n", err)
 		return
 	}
 
@@ -67,6 +109,12 @@ func (ha *HttpApi) handleElevatorCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	elevatorId, groupId := scheduler.FindElevator(elevatorStatuses, &p)
+
+	if elevatorId < 0 || groupId < 0 {
+		fmt.Println("Could not schedule passenger.  All elevators are busy.")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
 
 	jsonBytes, err := json.Marshal(&p)
 	if err != nil {
@@ -86,7 +134,7 @@ func (ha *HttpApi) handleElevatorCall(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	success := map[string]int{"elevatorId": elevatorId}
+	success := map[string]string{"elevatorId": strconv.Itoa(elevatorId), "groupId": strconv.Itoa(groupId)}
 
 	if err := json.NewEncoder(w).Encode(success); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

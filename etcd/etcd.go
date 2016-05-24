@@ -62,3 +62,13 @@ func (e *Etcd) SetPassenger(elevatorId, groupId int, jsonData []byte) error {
 	}
 	return nil
 }
+
+func (e *Etcd) SetMaintenanceMode(elevatorId, groupId, maintenance string) error {
+	path := "/maintenance/" + groupId + "-" + elevatorId
+
+	if _, err := e.KeysApi.Set(context.Background(), path, maintenance, nil); err != nil {
+		fmt.Printf("Error setting maintenance mode in etcd.  Error :%s\n", err.Error())
+		return err
+	}
+	return nil
+}

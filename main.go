@@ -37,7 +37,7 @@ type StartupParams struct {
 func main() {
 	initHTTPDefaults()
 
-	fmt.Println("Enter 'new' to add a new passenger or 'exit' to leave.")
+	fmt.Println("Enter 'new' to add a new passenger, 'maint' to set an elevator to maintenance mode, or 'exit' to leave.")
 
 	var groupCount = flag.Int("groups", 1, "Number of elevator groups to start with n elevators.")
 	var elevatorCount = flag.Int("elevators", 2, "Number of elevators to start within the group.")
@@ -70,8 +70,45 @@ func main() {
 		case "new":
 			startupParams.processNewPassenger(knownNodes)
 			break
+		case "maint":
+			startupParams.processMaintenance(knownNodes)
+			break
 		}
+
 	}
+}
+
+func (s *StartupParams) processMaintenance(knownNodes map[int]string) {
+	fmt.Println("Enter the group number for the elevator: ")
+	groupId, err := s.getElevatorMaintenanceInput()
+	if err != nil {
+		fmt.Printf("Error processing groupId: %s\n", err.Error())
+		return
+	}
+
+	// This is very poor UX.  Identify the elevator by it's named ID.
+	fmt.Println("Enter the elevator ID (0 indexed): ")
+	elevatorId, err := s.getElevatorMaintenanceInput()
+	if err != nil {
+		fmt.Printf("Error processing elevatorId: %s\n", err.Error())
+		return
+	}
+
+	fmt.Println("Enter 'true' for maintenance mode and 'false' for normal operation: ")
+	maintMode, err := s.getElevatorMaintenanceMode()
+	if err != nil {
+		fmt.Printf("Error processing maintenance mode: %s\n", err.Error())
+	}
+
+	randomIndex := util.GetRandomIndex(len(knownNodes) - 1)
+	port := knownNodes[randomIndex]
+	_, _, err = util.SendMaintenancePost(port, elevatorId, groupId, maintMode)
+	if err != nil {
+		fmt.Printf("Could not send maintenance request.  Error: %s\n", err.Error())
+		return
+	}
+
+	fmt.Printf("Elevator %d-%d set to maintenance mode: %s\n", groupId, elevatorId, strconv.FormatBool(maintMode))
 }
 
 // Processes a new passenger from user input.
@@ -103,13 +140,13 @@ func (s *StartupParams) processNewPassenger(knownNodes map[int]string) {
 	// This is "load balancing".  Could implement round-robin, but this will do for now.
 	randomIndex := util.GetRandomIndex(len(knownNodes) - 1)
 	port := knownNodes[randomIndex]
-	elevatorId, err := util.SendPassengerPost(port, currFloor, destFloor)
+	elevatorId, groupId, err := util.SendPassengerPost(port, currFloor, destFloor)
 	if err != nil {
 		fmt.Printf("Could not send request.  Error: %s\n", err.Error())
 		return
 	}
 
-	fmt.Printf("Take Elevator %d\n", elevatorId)
+	fmt.Printf("Take Elevator %s-%s\n", groupId, elevatorId)
 }
 
 // Gets the passenger input from Stdin
@@ -132,6 +169,43 @@ func (s *StartupParams) getFloorInput() (int, error) {
 		return parsed, nil
 	}
 	return -1, nil
+}
+
+// This should be refactored to be more generic.
+func (s *StartupParams) getElevatorMaintenanceInput() (int, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		parsed, err := strconv.Atoi(scanner.Text())
+		if err != nil {
+			return -1, err
+		}
+
+		if parsed < 0 {
+			return -1, errors.New("Must enter a positive elevator id.")
+		}
+
+		if parsed > s.ElevatorCount {
+			return -1, errors.New("Elevator does not exist.")
+		}
+
+		return parsed, nil
+	}
+
+	return -1, nil
+}
+
+func (s *StartupParams) getElevatorMaintenanceMode() (bool, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		parsed, err := strconv.ParseBool(scanner.Text())
+		if err != nil {
+			return false, errors.New("Cannot parse maintenance mode.")
+		}
+
+		return parsed, nil
+	}
+
+	return false, nil
 }
 
 // Initializes the elevators.

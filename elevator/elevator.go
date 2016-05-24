@@ -69,7 +69,9 @@ func (e *Elevator) Init() {
 	// Grab the possibly existing data from etcd.
 	e.loadExistingStatus()
 
-	e.startEtcdWatcher()
+	e.startPassengerWatcher()
+
+	e.startMaintenanceWatcher()
 
 	e.startTimerLoop()
 }
@@ -95,7 +97,7 @@ func (e *Elevator) startTimerLoop() {
 // and will not re-run until the elevator is restarted.
 //
 // Retry logic would be extremely helpful here.
-func (e *Elevator) startEtcdWatcher() {
+func (e *Elevator) startPassengerWatcher() {
 
 	go func(e *Elevator) {
 
@@ -110,6 +112,25 @@ func (e *Elevator) startEtcdWatcher() {
 			// Need to process the passenger.
 			// Start in new goroutine so we don't block the possible next one.
 			go e.addNewWaitingPassengerFromNode(r.Node)
+		}
+	}(e)
+}
+
+// Start a watcher to deal with putting elevator into maintenance mode.
+func (e *Elevator) startMaintenanceWatcher() {
+
+	go func(e *Elevator) {
+
+		watcherOptions := client.WatcherOptions{AfterIndex: 0, Recursive: true}
+		watcher := e.Etcd.KeysApi.Watcher("/maintenance/"+e.getKey(), &watcherOptions)
+		for {
+			r, err := watcher.Next(context.Background())
+			if err != nil {
+				fmt.Printf("Error from watcher.  Error: %v", err)
+				return
+			}
+			// Start in new goroutine so we don't block the possible next one.
+			go e.updateMaintenanceModeFromNode(r.Node)
 		}
 	}(e)
 }
@@ -244,6 +265,22 @@ func (e *Elevator) move() {
 
 	case STATE_MAINTENANCE:
 		// Doesn't respond to requests inputs.  Need to figure out a way to put an elevator in maintenance mode.
+		if len(e.Waiting) > 0 {
+			// TODO: Reschedule the passengers on a different lift.
+		}
+
+		if len(e.Passengers) > 0 {
+			// Unload the passengers on the current floor.
+			//
+			// TODO:  Fix this.  Maintenance needs to be stored locally to
+			// return to the maintenance mode upon unloading the passengers.
+			// e.CurrentState = STATE_UNLOADING
+			e.unloadPassengers()
+			return
+		}
+
+		// This is bad implementation.  The state will change twice in the run loop.
+		e.CurrentState = STATE_MAINTENANCE
 	}
 }
 
@@ -375,6 +412,22 @@ func (e *Elevator) saveState() error {
 	}
 
 	return nil
+}
+
+func (e *Elevator) updateMaintenanceModeFromNode(node *client.Node) bool {
+	maintMode, err := strconv.ParseBool(node.Value)
+	if err != nil {
+		fmt.Printf("Could not update maintenance mode.  Error: %+v\n", err)
+		return false
+	}
+
+	if maintMode {
+		e.CurrentState = STATE_MAINTENANCE
+	} else {
+		e.CurrentState = STATE_IDLE
+	}
+
+	return true
 }
 
 // Adds a new passenger to the WaitingPassengers list.

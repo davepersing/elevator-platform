@@ -16,6 +16,11 @@ func FindElevator(statuses map[int]*elevator.ElevatorStatus, p *passenger.Passen
 	// Take out all statuses that aren't available.
 	statusResults := filterUnavailableStatuses(statuses)
 
+	// If all are unavailable, bail out early.
+	if len(statusResults) == 0 {
+		return -1, -1
+	}
+
 	closestIdleId := getClosestIdle(statusResults, p)
 	closestDirectionalId := getClosestDirectionalId(statusResults, p)
 
@@ -55,6 +60,11 @@ func FindElevator(statuses map[int]*elevator.ElevatorStatus, p *passenger.Passen
 	// So calculate the closest based on the elevator's current target floor.
 	// Which ever is closest to the passenger wins.
 	closestIdToPassenger := getClosestToTargetId(statusResults, p)
+
+	// All elevators are in maintenance or error states.
+	if closestIdToPassenger < 0 {
+		return -1, -1
+	}
 
 	return closestIdToPassenger, statusResults[closestIdToPassenger].GroupId
 }
