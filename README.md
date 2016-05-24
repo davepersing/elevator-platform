@@ -33,6 +33,7 @@ Enter `maint` with the group number, the elevator id, and true/false.
 
 ## Abstract Design ##
 The system is comprised of two major pieces.
+
 1.  ElevatorService is comprised of two parts:
   a.  Elevator - A state machine with accompanying functionality to operate itself.
   b.  HttpApi - Exposes a POST endpoint to schedule elevator calls.
