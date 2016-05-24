@@ -27,6 +27,9 @@ Enter `new` and input the current floor and destination floor.
 To exit:
 Enter `exit`
 
+To put an elevator into maintenance mode:
+Enter `maint` with the group number, the elevator id, and true/false.
+
 
 ## Abstract Design ##
 The system is comprised of two major pieces.
@@ -143,6 +146,7 @@ As a backup measure, if Step 3 fails to return an elevator, the scheduler will c
 -  Implement capacity check in elevator scheduling to ensure elevator is not overburdened.
 -  Separate CLI for new passenger and elevator status.
 -  Admin mode to drive maintenance mode.
+-  Maintenance mode currently immediately unloads passengers on the current floor, but does not change state to STATE_UNLOADING.  Maintenance needs to be stored in the status struct.
 -  Improvements to how requests are scheduled.  Possibilities include moving scheduling HTTP API into its own server rather than being included with the elevator.
 -  General code clean up.
 -  Dashboard for elevator status.
