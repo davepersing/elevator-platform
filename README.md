@@ -35,8 +35,8 @@ Enter `maint` with the group number, the elevator id, and true/false.
 The system is comprised of two major pieces.
 
 1.  ElevatorService is comprised of two parts:
-  a.  Elevator - A state machine with accompanying functionality to operate itself.
-  b.  HttpApi - Exposes a POST endpoint to schedule elevator calls.
+  1.  Elevator - A state machine with accompanying functionality to operate itself.
+  2.  HttpApi - Exposes a POST endpoint to schedule elevator calls.
 2.  Etcd provides the backing data store and provides fault-tolerant, consistent data to drive the elevator system.
 
 
