@@ -55,7 +55,7 @@ The ElevatorService is modeled after a [12Factor App](http://12factor.net/).  Co
 
 ElevatorService as a whole is intended to act as a microservice exposing an HTTP API while allow each individual Elevator to maintain internal state.
 
-Any ElevatorService addressable by the VIP is able to receive and process the passenger's call request.
+Any ElevatorService addressable by the load balancer is able to receive and process the passenger's call request.
 
 
 #### Elevator ####
@@ -146,5 +146,5 @@ As a backup measure, if Step 3 fails to return an elevator, the scheduler will c
 -  Improvements to how requests are scheduled.  Possibilities include moving scheduling HTTP API into its own server rather than being included with the elevator.
 -  General code clean up.
 -  Dashboard for elevator status.
--  Additional elements of an elevator as state machines.  Door, hydralics, button interface.
+-  Additional elements of an elevator as state machines.  Door, hydraulics, buttons, etc.
 -  Improved documentation for godoc.
