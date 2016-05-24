@@ -79,14 +79,17 @@ Each state is determined by the current state of the application on a timed run 
 On each run loop iteration, the `move()` function is call to determine if a state transition is required.
 
 On elevator initialization, the elevator makes two connections to the Etcd cluster:
+
 1.  `GET /elevators/0-0` - Retrieves saved state of the elevator.
 2.  `GET /wait/0-0` - Create a watcher to receive a notification when waiting passengers have been updated.
 
 The current state is updated in Etcd during the following activities:
+
 1.  The main run loop completes one full iteration.
 2.  A waiting passenger has been added, the elevator has added that passenger to it's internal waiting passenger list.
 
 The current state is updated for two keys during the `saveState()` call:
+
 1.  `PUT /elevators/0-0` - The persisted state of the elevator.
 2.  `PUT /elevator_status/0-0` - The current state of the elevator with a TTL.  This provides the scheduler with the ability to know which elevators can update their status.
 
@@ -97,6 +100,7 @@ On startup, `main.go` will initialize n elevators as defined in the command line
 The HTTP API exposes a single endpoint to allow any ElevatorService to schedule a passenger call with the system.
 
 The HTTP API exposes one endpoint to the load balancer:
+
 - `POST /elevator_call` - This takes a `Passenger` struct. The handler requests and elevator ID from the scheduler based on the current statuses of the elevators.
 
 On startup, `main.go` will initialize the HTTP API with its own serve mux and port number.  The port number is determined by `8080 + i`
@@ -115,9 +119,11 @@ As a backup measure, if Step 3 fails to return an elevator, the scheduler will c
 
 
 #### (VERY) Simple Architectural Diagram ####
+
 ![Architecture Diagram](https://raw.githubusercontent.com/davepersing/elevator-platform/master/assets/HighLevelArch.jpg)
 
 ## Request Flow ##
+
 ![Request Flow](https://raw.githubusercontent.com/davepersing/elevator-platform/master/assets/RequestFlow.png)
 
 1.  User request a new elevator by typing `new` while the console app is running.
@@ -130,7 +136,9 @@ As a backup measure, if Step 3 fails to return an elevator, the scheduler will c
 
 
 ## Improvements ##
+
 -  Improved handling of waiting passengers.  Currently, the system only handles a single passenger at a time.  This is dangerous due to the likely possibility to two passengers being scheduled at the same time.  One passenger could be overwritten and not picked up.
+-  Improved scheduling for passengers that need a reschedule due to latency in the system.
 -  Error handling for lost connections.  Currently, if the connection to etcd is lost, the watcher goroutine does not get restart.  Implement a exponential backoff reconnection scheme to try to restablish contact.
 -  Implement capacity check in elevator scheduling to ensure elevator is not overburdened.
 -  Separate CLI for new passenger and elevator status.
